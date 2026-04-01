@@ -445,14 +445,22 @@ function renderDocs() {
   grid.innerHTML = docs.map(doc => {
     const icon = icons[doc.type||''] || icons[(doc.name||'').split('.').pop().toLowerCase()] || icons.default;
     const url = doc.url || '';
+    const hasBase64 = doc.stored && doc.base64;
+    let openBtn = '';
+    if(hasBase64) {
+      openBtn = `<button class="doc-btn" onclick="previewDoc('${doc.id}')" style="background:#185FA5;color:#fff;border-color:#185FA5">預覽</button>`;
+    } else if(url) {
+      openBtn = `<button class="doc-btn" onclick="window.open('${url}','_blank')" style="background:#185FA5;color:#fff;border-color:#185FA5">開啟</button>`;
+    }
     return `<div class="doc-card">
       <div class="doc-icon">${icon}</div>
       <div class="doc-name">${doc.name||''}</div>
       ${doc.category?`<div style="display:inline-block;background:#e6f1fb;color:#0C447C;font-size:11px;padding:2px 7px;border-radius:5px;margin:4px 0">${doc.category}</div>`:''}
+      ${hasBase64?`<div style="font-size:11px;color:#3B6D11;margin-top:2px">✅ 已暫存</div>`:''}
       <div class="doc-meta" style="margin-top:4px">${doc.date||''}</div>
       ${doc.note?`<div class="doc-meta" style="margin-top:2px">${doc.note}</div>`:''}
       <div class="doc-actions">
-        ${url?`<button class="doc-btn" onclick="window.open('${url}','_blank')" style="background:#185FA5;color:#fff;border-color:#185FA5">開啟</button>`:''}
+        ${openBtn}
         <button class="doc-btn" onclick="removeDoc('${doc.id}')">移除</button>
       </div>
     </div>`;
@@ -489,8 +497,19 @@ async function saveDoc() {
   } catch(e) { showToast('儲存失敗：'+e.message); }
 }
 
+function previewDoc(id) {
+  const doc = (window._docs||[]).find(d=>d.id===id);
+  if(!doc||!doc.base64) return;
+  const win = window.open('','_blank');
+  if(doc.base64.startsWith('data:image')) {
+    win.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${doc.base64}" style="max-width:100%;max-height:100vh"></body></html>`);
+  } else {
+    win.document.write(`<html><body style="margin:0"><embed src="${doc.base64}" width="100%" height="100%" style="position:fixed;inset:0"></body></html>`);
+  }
+}
+
 async function removeDoc(id) {
-  if(!confirm('確定要移除此文件連結？')) return;
+  if(!confirm('確定要移除此文件？')) return;
   try {
     await window._deleteDoc(window._doc(window._db,'docs',id));
     showToast('已移除');
@@ -508,13 +527,19 @@ async function processFile(file) {
   document.getElementById('upload-loading').style.display='flex';
   document.getElementById('parse-result').innerHTML='';
   document.getElementById('loading-text').textContent='AI 正在讀取文件...';
+  const MAX_STORE = 800 * 1024;
+  let fileBase64 = null;
+  if(file.size <= MAX_STORE) {
+    fileBase64 = await fileToDataURL(file);
+  }
+  window._pendingFileData = { name: file.name, size: file.size, base64: fileBase64, type: file.type };
   try {
     const ext = file.name.split('.').pop().toLowerCase();
     const isImage = ['jpg','jpeg','png','gif'].includes(ext);
     let result;
     if(isImage) {
       document.getElementById('loading-text').textContent='AI 正在辨識圖片...';
-      const b64 = await fileToBase64(file);
+      const b64 = fileBase64 ? fileBase64.split(',')[1] : await fileToBase64(file);
       result = await callClaudeImage(b64, file.type);
     } else {
       const text = await readText(file);
@@ -526,6 +551,15 @@ async function processFile(file) {
     document.getElementById('upload-loading').style.display='none';
     document.getElementById('parse-result').innerHTML=`<div style="color:red;padding:12px;background:#fff;border-radius:10px">解析失敗：${e.message}</div>`;
   }
+}
+
+function fileToDataURL(file) {
+  return new Promise((res,rej) => {
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
 }
 
 function fileToBase64(file) {
@@ -587,10 +621,15 @@ function showParseResult(jsonText, file) {
   }
   const items = parsed.items||[];
   const size = file.size<1024?file.size+'B':file.size<1048576?Math.round(file.size/1024)+'KB':Math.round(file.size/1048576*10)/10+'MB';
+  const canStore = file.size <= 800*1024;
   window._pendingFile = {name:file.name, size, parsedCount:items.length, date:new Date().toLocaleDateString('zh-TW')};
+  const storageHint = canStore
+    ? `<div style="background:#eaf3de;color:#27500A;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:8px">✅ 此檔案 (${size}) 可直接存入系統暫存區</div>`
+    : `<div style="background:#faeeda;color:#633806;font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:8px">⚠️ 此檔案 (${size}) 較大，匯入後請到「文件附件區」補上 Google Drive 連結</div>`;
   document.getElementById('parse-result').innerHTML=`
     <div class="ai-result">
       <div class="ai-header"><span class="ai-badge">AI 解析完成</span>從「${file.name}」發現 ${items.length} 個採購項目</div>
+      ${storageHint}
       <div>${items.map((item,i)=>`
         <div class="parsed-item">
           <input type="checkbox" id="pi-${i}" checked>
@@ -618,10 +657,24 @@ async function importParsed(items) {
     }
   }
   if(window._pendingFile) {
-    try { await window._addDoc(window._collection(window._db,'docs'),window._pendingFile); } catch(e){}
+    const fd = window._pendingFileData;
+    const docData = {
+      ...window._pendingFile,
+      type: fd && fd.base64 ? (fd.type||'').split('/')[1]||'other' : 'other',
+      category: '解析文件',
+      note: '',
+      url: '',
+      createdAt: Date.now()
+    };
+    if(fd && fd.base64) {
+      docData.base64 = fd.base64;
+      docData.stored = true;
+    }
+    try { await window._addDoc(window._collection(window._db,'docs'), docData); } catch(e){}
   }
-  showToast(`已匯入 ${count} 個項目`);
+  showToast(`已匯入 ${count} 個項目，文件已存入附件區`);
   document.getElementById('parse-result').innerHTML='';
+  window._pendingFileData = null;
   switchTab('list');
 }
 
