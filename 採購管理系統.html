@@ -42,10 +42,11 @@ td{padding:11px 14px;border-bottom:1px solid #f0ede6;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafaf8}
 .badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600}
-.s0{background:#e6f1fb;color:#0C447C}
-.s1{background:#faeeda;color:#633806}
-.s2{background:#eaf3de;color:#27500A}
-.s3{background:#d3d1c7;color:#444441}
+.s0{background:#f1efe8;color:#5F5E5A}
+.s1{background:#e6f1fb;color:#0C447C}
+.s2{background:#faeeda;color:#633806}
+.s3{background:#eaf3de;color:#27500A}
+.s4{background:#d3d1c7;color:#444441}
 .p-high{background:#fcebeb;color:#791F1F}
 .p-mid{background:#faeeda;color:#633806}
 .p-low{background:#eaf3de;color:#27500A}
@@ -123,10 +124,11 @@ tr:hover td{background:#fafaf8}
       <input type="text" id="search-input" placeholder="搜尋名稱、廠商..." oninput="renderList()">
       <select id="filter-status" onchange="renderList()">
         <option value="">全部狀態</option>
-        <option value="0">提報預算</option>
-        <option value="1">預算通過</option>
-        <option value="2">採購中</option>
-        <option value="3">已到貨</option>
+        <option value="0">尚未送預算</option>
+        <option value="1">提報預算</option>
+        <option value="2">預算通過</option>
+        <option value="3">採購中</option>
+        <option value="4">已到貨</option>
       </select>
       <button class="btn-primary" onclick="openAddModal()">+ 手動新增</button>
     </div>
@@ -246,10 +248,11 @@ tr:hover td{background:#fafaf8}
       <div class="form-group">
         <label class="form-label">狀態</label>
         <select class="form-input" id="f-status">
-          <option value="0">提報預算</option>
-          <option value="1">預算通過</option>
-          <option value="2">採購中</option>
-          <option value="3">已到貨</option>
+          <option value="0">尚未送預算</option>
+          <option value="1">提報預算</option>
+          <option value="2">預算通過</option>
+          <option value="3">採購中</option>
+          <option value="4">已到貨</option>
         </select>
       </div>
       <div class="form-group">
@@ -326,7 +329,7 @@ window._items = [];
 window._docs = [];
 window._editingId = null;
 
-const STATUS_LABELS = ['提報預算','預算通過','採購中','已到貨'];
+const STATUS_LABELS = ['尚未送預算','提報預算','預算通過','採購中','已到貨'];
 const PRIORITY_LABELS = {high:'高',mid:'中',low:'低'};
 
 function showToast(msg) {
@@ -347,12 +350,13 @@ function switchTab(tab) {
 
 function renderStats() {
   const items = window._items;
-  const counts = [0,1,2,3].map(s => items.filter(i => i.status===s).length);
+  const counts = [0,1,2,3,4].map(s => items.filter(i => i.status===s).length);
   const total = items.reduce((a,i) => a+(parseInt(i.price)||0)*(parseInt(i.qty)||1),0);
   document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card"><div class="stat-label">提報預算</div><div class="stat-value" style="color:#185FA5">${counts[0]}</div><div class="stat-sub">項目</div></div>
-    <div class="stat-card"><div class="stat-label">預算通過</div><div class="stat-value" style="color:#854F0B">${counts[1]}</div><div class="stat-sub">項目</div></div>
-    <div class="stat-card"><div class="stat-label">採購中</div><div class="stat-value" style="color:#3B6D11">${counts[2]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">尚未送預算</div><div class="stat-value" style="color:#888">${counts[0]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">提報預算</div><div class="stat-value" style="color:#185FA5">${counts[1]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">預算通過</div><div class="stat-value" style="color:#854F0B">${counts[2]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">採購中</div><div class="stat-value" style="color:#3B6D11">${counts[3]}</div><div class="stat-sub">項目</div></div>
     <div class="stat-card"><div class="stat-label">總預算</div><div class="stat-value">${total>0?(total>=10000?Math.round(total/10000)+'萬':total.toLocaleString()):'-'}</div><div class="stat-sub">元</div></div>`;
 }
 
@@ -373,7 +377,7 @@ function renderList() {
       <td>${item.qty||1}</td>
       <td>${item.price?parseInt(item.price).toLocaleString():'—'}</td>
       <td><span class="badge p-${item.priority||'mid'}">${PRIORITY_LABELS[item.priority||'mid']}</span></td>
-      <td><select class="inline-select" onchange="changeStatus('${item.id}',this.value)">${[0,1,2,3].map(s=>`<option value="${s}"${item.status===s?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select></td>
+      <td><select class="inline-select" onchange="changeStatus('${item.id}',this.value)">${[0,1,2,3,4].map(s=>`<option value="${s}"${item.status===s?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select></td>
       <td>
         <button class="action-btn" onclick="openEditModal('${item.id}')" title="編輯">✏️</button>
         <button class="action-btn" onclick="deleteItem('${item.id}')" title="刪除">🗑️</button>
