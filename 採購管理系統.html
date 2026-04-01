@@ -153,9 +153,14 @@ tr:hover td{background:#fafaf8}
   </div>
 
   <div id="tab-docs" class="section">
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn-primary" onclick="openDocModal()">+ 新增文件連結</button>
-      <div style="flex:1;min-width:200px;font-size:13px;color:#888;display:flex;align-items:center">先將文件上傳到 Google Drive，再把連結貼到這裡</div>
+    <div id="doc-drop-zone" style="border:2px dashed #d0cdc6;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#fafaf8;margin-bottom:16px;transition:all .2s" onclick="document.getElementById('direct-upload').click()">
+      <div style="font-size:28px;margin-bottom:6px">📁</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px">點擊或拖曳上傳檔案</div>
+      <div style="font-size:12px;color:#aaa">支援 PDF · Word · 圖片 · 文字檔　小於 800KB 可直接預覽</div>
+      <input type="file" id="direct-upload" style="display:none" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif" onchange="handleDirectUpload(event)">
+    </div>
+    <div style="text-align:right;margin-bottom:12px">
+      <button class="btn-primary" style="background:#555;font-size:12px;padding:6px 12px" onclick="openDocModal()">🔗 新增 Google Drive 連結</button>
     </div>
     <div class="docs-grid" id="docs-grid"></div>
     <div id="empty-docs" class="empty-state" style="display:none">
@@ -497,6 +502,49 @@ async function saveDoc() {
   } catch(e) { showToast('儲存失敗：'+e.message); }
 }
 
+async function handleDirectUpload(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  e.target.value='';
+  const MAX = 800*1024;
+  const size = file.size<1024?file.size+'B':file.size<1048576?Math.round(file.size/1024)+'KB':Math.round(file.size/1048576*10)/10+'MB';
+  const ext = file.name.split('.').pop().toLowerCase();
+  const typeMap = {pdf:'pdf',doc:'doc',docx:'doc',txt:'txt',jpg:'img',jpeg:'img',png:'img',gif:'img'};
+  const type = typeMap[ext]||'other';
+
+  if(file.size > MAX) {
+    showToast(`檔案 ${size} 較大，請改用 Google Drive 連結`);
+    openDocModal();
+    document.getElementById('d-name').value = file.name;
+    return;
+  }
+
+  showToast('上傳中...');
+  try {
+    const base64 = await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const data = {
+      name: file.name,
+      size, type,
+      category: '直接上傳',
+      note: '',
+      url: '',
+      base64,
+      stored: true,
+      date: new Date().toLocaleDateString('zh-TW'),
+      createdAt: Date.now()
+    };
+    await window._addDoc(window._collection(window._db,'docs'), data);
+    showToast('✅ 上傳成功！');
+  } catch(e) {
+    showToast('上傳失敗：'+e.message);
+  }
+}
+
 function previewDoc(id) {
   const doc = (window._docs||[]).find(d=>d.id===id);
   if(!doc||!doc.base64) return;
@@ -691,6 +739,24 @@ document.getElementById('item-modal').addEventListener('click', e => {
 });
 document.getElementById('doc-modal').addEventListener('click', e => {
   if(e.target===document.getElementById('doc-modal')) closeDocModal();
+});
+
+const docZone = document.getElementById('doc-drop-zone');
+docZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  docZone.style.borderColor='#185FA5';
+  docZone.style.background='#fff';
+});
+docZone.addEventListener('dragleave', () => {
+  docZone.style.borderColor='';
+  docZone.style.background='#fafaf8';
+});
+docZone.addEventListener('drop', e => {
+  e.preventDefault();
+  docZone.style.borderColor='';
+  docZone.style.background='#fafaf8';
+  const f = e.dataTransfer.files[0];
+  if(f) handleDirectUpload({target:{files:[f],value:''}});
 });
 
 renderStats();
