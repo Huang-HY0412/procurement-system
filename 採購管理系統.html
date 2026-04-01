@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工程採購管理系統</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+.topbar{background:#fff;border-bottom:1px solid #e0ddd6;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:16px;font-weight:600;color:#1a1a1a}
+.topbar-sub{font-size:12px;color:#888;margin-top:1px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;display:inline-block;margin-right:6px}
+.sync-dot.online{background:#3b6d11}
+.sync-dot.syncing{background:#ba7517;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.container{max-width:1100px;margin:0 auto;padding:24px 16px}
+.tabs{display:flex;gap:4px;background:#e8e6df;border-radius:10px;padding:4px;margin-bottom:24px}
+.tab{flex:1;padding:9px 12px;font-size:13px;border:none;background:transparent;border-radius:7px;cursor:pointer;color:#666;font-family:inherit;transition:all .15s;font-weight:500}
+.tab.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.section{display:none}.section.active{display:block}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e8e6df}
+.stat-label{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.stat-value{font-size:24px;font-weight:600}
+.stat-sub{font-size:11px;color:#aaa;margin-top:2px}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar input,.toolbar select{flex:1;min-width:120px;padding:8px 12px;border:1px solid #e0ddd6;border-radius:8px;font-size:13px;background:#fff;font-family:inherit}
+.btn-primary{padding:8px 16px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.btn-primary:hover{background:#0C447C}
+.table-wrap{background:#fff;border-radius:12px;border:1px solid #e8e6df;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e8e6df;text-transform:uppercase;letter-spacing:.5px;background:#fafaf8}
+td{padding:11px 14px;border-bottom:1px solid #f0ede6;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600}
+.s0{background:#e6f1fb;color:#0C447C}
+.s1{background:#faeeda;color:#633806}
+.s2{background:#eaf3de;color:#27500A}
+.s3{background:#d3d1c7;color:#444441}
+.p-high{background:#fcebeb;color:#791F1F}
+.p-mid{background:#faeeda;color:#633806}
+.p-low{background:#eaf3de;color:#27500A}
+.inline-select{padding:4px 8px;border:1px solid #e0ddd6;border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-family:inherit}
+.action-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:5px;font-size:14px;color:#aaa}
+.action-btn:hover{background:#f0ede6;color:#333}
+.empty-state{text-align:center;padding:48px 16px;color:#aaa}
+.empty-icon{font-size:40px;margin-bottom:10px;opacity:.4}
+.upload-zone{border:2px dashed #d0cdc6;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:#fafaf8;margin-bottom:16px}
+.upload-zone:hover{border-color:#185FA5;background:#fff}
+.upload-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.upload-sub{font-size:13px;color:#888}
+.upload-types{font-size:12px;color:#bbb;margin-top:6px}
+.loading{display:flex;align-items:center;gap:10px;padding:24px;color:#888;font-size:14px;justify-content:center}
+.spinner{width:20px;height:20px;border:2px solid #e0ddd6;border-top-color:#185FA5;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-result{background:#fff;border-radius:12px;border:1px solid #e8e6df;padding:16px 20px;margin-bottom:12px}
+.ai-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;font-weight:600}
+.ai-badge{background:#e6f1fb;color:#0C447C;font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
+.parsed-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#fafaf8;border-radius:8px;margin-bottom:6px;font-size:13px}
+.parsed-item input[type=checkbox]{width:16px;height:16px;accent-color:#185FA5;flex-shrink:0}
+.parsed-name{flex:1;font-weight:600}
+.parsed-meta{font-size:12px;color:#888}
+.import-btn{width:100%;padding:11px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:10px}
+.import-btn:hover{background:#0C447C}
+.docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.doc-card{background:#fff;border-radius:12px;border:1px solid #e8e6df;padding:16px}
+.doc-icon{font-size:30px;margin-bottom:8px}
+.doc-name{font-size:13px;font-weight:600;word-break:break-all;margin-bottom:4px}
+.doc-meta{font-size:11px;color:#888}
+.doc-actions{display:flex;gap:6px;margin-top:10px}
+.doc-btn{flex:1;padding:6px;border:1px solid #e0ddd6;border-radius:7px;background:transparent;font-size:12px;cursor:pointer;font-family:inherit;color:#666}
+.doc-btn:hover{background:#fafaf8}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:520px;border:1px solid #e8e6df;max-height:85vh;overflow-y:auto;margin:16px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-full{grid-column:1/-1}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:12px;color:#666;font-weight:600}
+.form-input{padding:9px 11px;border:1px solid #e0ddd6;border-radius:8px;font-size:13px;background:#fff;font-family:inherit}
+.form-input:focus{outline:none;border-color:#185FA5}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-cancel{padding:9px 18px;border:1px solid #e0ddd6;border-radius:8px;background:transparent;color:#666;font-size:13px;cursor:pointer;font-family:inherit}
+.btn-save{padding:9px 18px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){display:none}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <div class="topbar-title">工程採購管理系統</div>
+    <div class="topbar-sub">多人共用 · 即時同步</div>
+  </div>
+  <div style="font-size:13px;color:#888;display:flex;align-items:center">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span id="sync-status">連線中...</span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('list')">📋 採購清單</button>
+    <button class="tab" onclick="switchTab('upload')">📄 文件上傳解析</button>
+    <button class="tab" onclick="switchTab('docs')">📎 文件附件區</button>
+  </div>
+
+  <div id="tab-list" class="section active">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="搜尋名稱、廠商..." oninput="renderList()">
+      <select id="filter-status" onchange="renderList()">
+        <option value="">全部狀態</option>
+        <option value="0">提報預算</option>
+        <option value="1">預算通過</option>
+        <option value="2">採購中</option>
+        <option value="3">已到貨</option>
+      </select>
+      <button class="btn-primary" onclick="openAddModal()">+ 手動新增</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>品項名稱</th><th>廠商</th><th>數量</th><th>預算(元)</th><th>優先</th><th>狀態</th><th></th>
+        </tr></thead>
+        <tbody id="items-tbody"></tbody>
+      </table>
+      <div id="empty-list" class="empty-state" style="display:none">
+        <div class="empty-icon">📋</div>
+        <div>尚無採購項目</div>
+        <div style="font-size:12px;margin-top:4px">請手動新增，或上傳文件讓 AI 自動解析</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-upload" class="section">
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:36px;margin-bottom:8px">📄</div>
+      <div class="upload-title">點擊或拖曳上傳文件</div>
+      <div class="upload-sub">AI 自動讀取並建立採購清單</div>
+      <div class="upload-types">支援：PDF · Word · 純文字 · 圖片 (JPG/PNG)</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" style="display:none" onchange="handleFileUpload(event)">
+    <div id="upload-loading" style="display:none" class="loading">
+      <div class="spinner"></div>
+      <span id="loading-text">AI 正在解析文件...</span>
+    </div>
+    <div id="parse-result"></div>
+  </div>
+
+  <div id="tab-docs" class="section">
+    <div class="docs-grid" id="docs-grid"></div>
+    <div id="empty-docs" class="empty-state" style="display:none">
+      <div class="empty-icon">📎</div>
+      <div>尚無附件文件</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="item-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">新增採購項目</div>
+    <div class="form-grid">
+      <div class="form-group form-full">
+        <label class="form-label">品項名稱 *</label>
+        <input type="text" class="form-input" id="f-name" placeholder="例：示波器 200MHz">
+      </div>
+      <div class="form-group">
+        <label class="form-label">規格型號</label>
+        <input type="text" class="form-input" id="f-spec" placeholder="例：Keysight DSOX1204G">
+      </div>
+      <div class="form-group">
+        <label class="form-label">廠商</label>
+        <input type="text" class="form-input" id="f-vendor" placeholder="例：宏銓科技">
+      </div>
+      <div class="form-group">
+        <label class="form-label">數量</label>
+        <input type="number" class="form-input" id="f-qty" value="1" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">單價 (元)</label>
+        <input type="number" class="form-input" id="f-price" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">狀態</label>
+        <select class="form-input" id="f-status">
+          <option value="0">提報預算</option>
+          <option value="1">預算通過</option>
+          <option value="2">採購中</option>
+          <option value="3">已到貨</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">優先順序</label>
+        <select class="form-input" id="f-priority">
+          <option value="high">高</option>
+          <option value="mid">中</option>
+          <option value="low">低</option>
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label class="form-label">備註</label>
+        <input type="text" class="form-input" id="f-note" placeholder="附加說明...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveItem()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA4tYITiwR7lm5wvZC4QVxw9ztGSQFbxuE",
+  authDomain: "procurement-system-8afe8.firebaseapp.com",
+  projectId: "procurement-system-8afe8",
+  storageBucket: "procurement-system-8afe8.firebasestorage.app",
+  messagingSenderId: "121329036587",
+  appId: "1:121329036587:web:f37e046918474e51f5296e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window._db = db;
+window._collection = collection;
+window._addDoc = addDoc;
+window._updateDoc = updateDoc;
+window._deleteDoc = deleteDoc;
+window._doc = doc;
+
+const dot = document.getElementById('sync-dot');
+const status = document.getElementById('sync-status');
+dot.className = 'sync-dot online';
+status.textContent = '已連線（多人共用）';
+
+const q = query(collection(db, 'items'), orderBy('createdAt', 'desc'));
+onSnapshot(q, (snapshot) => {
+  window._items = [];
+  snapshot.forEach(d => window._items.push({ id: d.id, ...d.data() }));
+  renderList();
+  renderStats();
+}, (err) => {
+  dot.className = 'sync-dot';
+  status.textContent = '連線失敗';
+});
+
+const qd = query(collection(db, 'docs'), orderBy('date', 'desc'));
+onSnapshot(qd, (snapshot) => {
+  window._docs = [];
+  snapshot.forEach(d => window._docs.push({ id: d.id, ...d.data() }));
+  renderDocs();
+});
+</script>
+
+<script>
+window._items = [];
+window._docs = [];
+window._editingId = null;
+
+const STATUS_LABELS = ['提報預算','預算通過','採購中','已到貨'];
+const PRIORITY_LABELS = {high:'高',mid:'中',low:'低'};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['list','upload','docs'][i] === tab);
+  });
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='docs') renderDocs();
+}
+
+function renderStats() {
+  const items = window._items;
+  const counts = [0,1,2,3].map(s => items.filter(i => i.status===s).length);
+  const total = items.reduce((a,i) => a+(parseInt(i.price)||0)*(parseInt(i.qty)||1),0);
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-label">提報預算</div><div class="stat-value" style="color:#185FA5">${counts[0]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">預算通過</div><div class="stat-value" style="color:#854F0B">${counts[1]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">採購中</div><div class="stat-value" style="color:#3B6D11">${counts[2]}</div><div class="stat-sub">項目</div></div>
+    <div class="stat-card"><div class="stat-label">總預算</div><div class="stat-value">${total>0?(total>=10000?Math.round(total/10000)+'萬':total.toLocaleString()):'-'}</div><div class="stat-sub">元</div></div>`;
+}
+
+function renderList() {
+  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  const sf = document.getElementById('filter-status').value;
+  let filtered = window._items.filter(i => {
+    const mq = !q||(i.name||'').toLowerCase().includes(q)||(i.vendor||'').toLowerCase().includes(q);
+    const ms = sf===''||String(i.status)===sf;
+    return mq&&ms;
+  });
+  const tbody = document.getElementById('items-tbody');
+  document.getElementById('empty-list').style.display = filtered.length?'none':'block';
+  tbody.innerHTML = filtered.map(item => `
+    <tr>
+      <td><div style="font-weight:600">${item.name||''}</div>${item.spec?'<div style="font-size:11px;color:#aaa">'+item.spec+'</div>':''}</td>
+      <td style="color:#888">${item.vendor||'—'}</td>
+      <td>${item.qty||1}</td>
+      <td>${item.price?parseInt(item.price).toLocaleString():'—'}</td>
+      <td><span class="badge p-${item.priority||'mid'}">${PRIORITY_LABELS[item.priority||'mid']}</span></td>
+      <td><select class="inline-select" onchange="changeStatus('${item.id}',this.value)">${[0,1,2,3].map(s=>`<option value="${s}"${item.status===s?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select></td>
+      <td>
+        <button class="action-btn" onclick="openEditModal('${item.id}')" title="編輯">✏️</button>
+        <button class="action-btn" onclick="deleteItem('${item.id}')" title="刪除">🗑️</button>
+      </td>
+    </tr>`).join('');
+  renderStats();
+}
+
+async function changeStatus(id, val) {
+  try {
+    await window._updateDoc(window._doc(window._db,'items',id), {status:parseInt(val)});
+  } catch(e) { showToast('更新失敗'); }
+}
+
+async function deleteItem(id) {
+  if(!confirm('確定要刪除此項目？')) return;
+  try {
+    await window._deleteDoc(window._doc(window._db,'items',id));
+    showToast('已刪除');
+  } catch(e) { showToast('刪除失敗'); }
+}
+
+function openAddModal() {
+  window._editingId = null;
+  document.getElementById('modal-title').textContent = '新增採購項目';
+  ['name','spec','vendor','note'].forEach(f => document.getElementById('f-'+f).value='');
+  document.getElementById('f-qty').value='1';
+  document.getElementById('f-price').value='';
+  document.getElementById('f-status').value='0';
+  document.getElementById('f-priority').value='mid';
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function openEditModal(id) {
+  const item = window._items.find(i => i.id===id);
+  if(!item) return;
+  window._editingId = id;
+  document.getElementById('modal-title').textContent = '編輯採購項目';
+  document.getElementById('f-name').value=item.name||'';
+  document.getElementById('f-spec').value=item.spec||'';
+  document.getElementById('f-vendor').value=item.vendor||'';
+  document.getElementById('f-qty').value=item.qty||1;
+  document.getElementById('f-price').value=item.price||'';
+  document.getElementById('f-status').value=item.status||0;
+  document.getElementById('f-priority').value=item.priority||'mid';
+  document.getElementById('f-note').value=item.note||'';
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('item-modal').classList.remove('open'); }
+
+async function saveItem() {
+  const name = document.getElementById('f-name').value.trim();
+  if(!name) { alert('請輸入品項名稱'); return; }
+  const data = {
+    name, spec:document.getElementById('f-spec').value.trim(),
+    vendor:document.getElementById('f-vendor').value.trim(),
+    qty:parseInt(document.getElementById('f-qty').value)||1,
+    price:parseInt(document.getElementById('f-price').value)||0,
+    status:parseInt(document.getElementById('f-status').value),
+    priority:document.getElementById('f-priority').value,
+    note:document.getElementById('f-note').value.trim()
+  };
+  try {
+    if(window._editingId) {
+      await window._updateDoc(window._doc(window._db,'items',window._editingId), data);
+      showToast('已更新');
+    } else {
+      data.createdAt = Date.now();
+      await window._addDoc(window._collection(window._db,'items'), data);
+      showToast('已新增');
+    }
+    closeModal();
+  } catch(e) { showToast('儲存失敗：'+e.message); }
+}
+
+function renderDocs() {
+  const docs = window._docs||[];
+  const grid = document.getElementById('docs-grid');
+  document.getElementById('empty-docs').style.display = docs.length?'none':'block';
+  const icons = {pdf:'📕',doc:'📘',docx:'📘',txt:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',default:'📎'};
+  grid.innerHTML = docs.map(doc => {
+    const ext=(doc.name||'').split('.').pop().toLowerCase();
+    const icon=icons[ext]||icons.default;
+    return `<div class="doc-card">
+      <div class="doc-icon">${icon}</div>
+      <div class="doc-name">${doc.name}</div>
+      <div class="doc-meta">${doc.size||''} · ${doc.date||''}</div>
+      <div class="doc-meta" style="margin-top:2px">解析出 ${doc.parsedCount||0} 項</div>
+      <div class="doc-actions">
+        <button class="doc-btn" onclick="removeDoc('${doc.id}')">移除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function removeDoc(id) {
+  try {
+    await window._deleteDoc(window._doc(window._db,'docs',id));
+    showToast('已移除');
+  } catch(e) { showToast('移除失敗'); }
+}
+
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor='#185FA5'; });
+zone.addEventListener('dragleave', () => { zone.style.borderColor=''; });
+zone.addEventListener('drop', e => { e.preventDefault(); zone.style.borderColor=''; const f=e.dataTransfer.files[0]; if(f) processFile(f); });
+
+function handleFileUpload(e) { const f=e.target.files[0]; if(f) processFile(f); e.target.value=''; }
+
+async function processFile(file) {
+  document.getElementById('upload-loading').style.display='flex';
+  document.getElementById('parse-result').innerHTML='';
+  document.getElementById('loading-text').textContent='AI 正在讀取文件...';
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImage = ['jpg','jpeg','png','gif'].includes(ext);
+    let result;
+    if(isImage) {
+      document.getElementById('loading-text').textContent='AI 正在辨識圖片...';
+      const b64 = await fileToBase64(file);
+      result = await callClaudeImage(b64, file.type);
+    } else {
+      const text = await readText(file);
+      result = await callClaude(text || file.name);
+    }
+    document.getElementById('upload-loading').style.display='none';
+    showParseResult(result, file);
+  } catch(e) {
+    document.getElementById('upload-loading').style.display='none';
+    document.getElementById('parse-result').innerHTML=`<div style="color:red;padding:12px;background:#fff;border-radius:10px">解析失敗：${e.message}</div>`;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res,rej) => {
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function readText(file) {
+  return new Promise(res => {
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=()=>res('');
+    r.readAsText(file,'UTF-8');
+  });
+}
+
+async function callClaude(text) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',max_tokens:1000,
+      messages:[{role:'user',content:`你是採購清單解析助手。請從以下文件內容中提取所有採購品項，只回傳JSON，格式：{"items":[{"name":"品項名稱","spec":"規格","vendor":"廠商","qty":數量,"price":單價或0,"priority":"high/mid/low"}]}\n\n文件內容：\n${text.slice(0,4000)}`}]
+    })
+  });
+  const data = await resp.json();
+  return data.content.map(c=>c.text||'').join('');
+}
+
+async function callClaudeImage(b64, mime) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:'請從這張圖片提取採購品項，只回傳JSON：{"items":[{"name":"品項名稱","spec":"規格","vendor":"廠商","qty":數量,"price":單價或0,"priority":"high/mid/low"}]}'}
+      ]}]
+    })
+  });
+  const data = await resp.json();
+  return data.content.map(c=>c.text||'').join('');
+}
+
+function showParseResult(jsonText, file) {
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    document.getElementById('parse-result').innerHTML=`<div class="ai-result"><div class="ai-header"><span class="ai-badge">AI</span>無法辨識採購資料</div><div style="font-size:13px;color:#888;background:#fafaf8;padding:12px;border-radius:8px">${jsonText.slice(0,300)}</div></div>`;
+    return;
+  }
+  const items = parsed.items||[];
+  const size = file.size<1024?file.size+'B':file.size<1048576?Math.round(file.size/1024)+'KB':Math.round(file.size/1048576*10)/10+'MB';
+  window._pendingFile = {name:file.name, size, parsedCount:items.length, date:new Date().toLocaleDateString('zh-TW')};
+  document.getElementById('parse-result').innerHTML=`
+    <div class="ai-result">
+      <div class="ai-header"><span class="ai-badge">AI 解析完成</span>從「${file.name}」發現 ${items.length} 個採購項目</div>
+      <div>${items.map((item,i)=>`
+        <div class="parsed-item">
+          <input type="checkbox" id="pi-${i}" checked>
+          <div style="flex:1">
+            <div class="parsed-name">${item.name||'未知品項'}</div>
+            <div class="parsed-meta">${[item.spec,item.vendor,item.qty?'數量：'+item.qty:'',item.price?'單價：'+parseInt(item.price).toLocaleString()+'元':''].filter(Boolean).join(' · ')}</div>
+          </div>
+          <span class="badge p-${item.priority||'mid'}">${PRIORITY_LABELS[item.priority||'mid']}</span>
+        </div>`).join('')}</div>
+      <button class="import-btn" onclick="importParsed(${JSON.stringify(items).replace(/"/g,'&quot;')})">匯入已勾選項目到採購清單</button>
+    </div>`;
+}
+
+async function importParsed(items) {
+  const checkboxes = document.querySelectorAll('[id^="pi-"]');
+  let count=0;
+  for(let i=0;i<items.length;i++) {
+    if(checkboxes[i]&&checkboxes[i].checked) {
+      const data = {
+        name:items[i].name||'未命名',spec:items[i].spec||'',vendor:items[i].vendor||'',
+        qty:parseInt(items[i].qty)||1,price:parseInt(items[i].price)||0,
+        status:0,priority:items[i].priority||'mid',note:'',createdAt:Date.now()
+      };
+      try { await window._addDoc(window._collection(window._db,'items'),data); count++; } catch(e){}
+    }
+  }
+  if(window._pendingFile) {
+    try { await window._addDoc(window._collection(window._db,'docs'),window._pendingFile); } catch(e){}
+  }
+  showToast(`已匯入 ${count} 個項目`);
+  document.getElementById('parse-result').innerHTML='';
+  switchTab('list');
+}
+
+document.getElementById('item-modal').addEventListener('click', e => {
+  if(e.target===document.getElementById('item-modal')) closeModal();
+});
+
+renderStats();
+renderList();
+</script>
+</body>
+</html>
