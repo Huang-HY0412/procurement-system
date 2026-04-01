@@ -469,7 +469,7 @@ function readText(file) {
 }
 
 async function callClaude(text) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+  const resp = await fetch('/.netlify/functions/analyze',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -482,7 +482,7 @@ async function callClaude(text) {
 }
 
 async function callClaudeImage(b64, mime) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+  const resp = await fetch('/.netlify/functions/analyze',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
