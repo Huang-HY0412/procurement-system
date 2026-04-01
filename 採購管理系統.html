@@ -102,6 +102,7 @@ tr:hover td{background:#fafaf8}
   </div>
 </div>
 
+<div id="expiry-banner" style="display:none"></div>
 <div class="container">
   <div class="tabs">
     <button class="tab active" onclick="switchTab('list')">📋 採購清單</button>
@@ -758,6 +759,19 @@ docZone.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0];
   if(f) handleDirectUpload({target:{files:[f],value:''}});
 });
+
+// Firebase expiry check
+(function() {
+  const expiry = new Date('2026-05-01');
+  const now = new Date();
+  const diffDays = Math.ceil((expiry - now) / (1000*60*60*24));
+  const banner = document.getElementById('expiry-banner');
+  if(!banner) return;
+  if(diffDays > 0 && diffDays <= 5) {
+    banner.style.cssText = 'display:flex;align-items:center;gap:8px;background:#fcebeb;border-bottom:1px solid #f09595;padding:10px 24px;font-size:13px;color:#791F1F';
+    banner.innerHTML = `<span>🔴</span><span><strong>Firebase 安全設定</strong>將於 2026/5/1 到期，還有 <strong>${diffDays} 天</strong>，請找 Claude 更新設定（約 5 分鐘）</span>`;
+  }
+})();
 
 renderStats();
 renderList();
