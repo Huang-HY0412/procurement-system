@@ -155,6 +155,9 @@ tr:hover td{background:#fafaf8}
       <div class="upload-types">支援：PDF · Word · 純文字 · 圖片 (JPG/PNG)</div>
     </div>
     <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" style="display:none" onchange="handleFileUpload(event)">
+    <div style="text-align:right;margin-bottom:8px">
+      <button id="apikey-btn" onclick="showApiKeyModal()" style="background:none;border:1px solid #e0ddd6;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:#666;font-family:inherit">🔑 設定 AI 金鑰</button>
+    </div>
     <div id="upload-loading" style="display:none" class="loading">
       <div class="spinner"></div>
       <span id="loading-text">AI 正在解析文件...</span>
@@ -277,6 +280,23 @@ tr:hover td{background:#fafaf8}
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay" id="apikey-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">設定 AI 解析金鑰</div>
+    <div style="font-size:13px;color:#888;margin-bottom:16px;background:#fafaf8;padding:12px;border-radius:8px;line-height:1.6">
+      📌 請到 <strong>console.anthropic.com</strong> → API Keys → Create Key，申請金鑰後貼到下方。金鑰只會儲存在你的瀏覽器裡，不會上傳到任何地方。
+    </div>
+    <div class="form-group">
+      <label class="form-label">Anthropic API 金鑰</label>
+      <input type="password" class="form-input" id="apikey-input" placeholder="sk-ant-api03-...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeApiKeyModal()">取消</button>
+      <button class="btn-save" onclick="saveApiKey()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="preview-overlay">
   <div class="modal" style="max-width:680px;max-height:85vh;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
@@ -356,6 +376,7 @@ function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='docs') renderDocs();
+  if(tab==='upload') checkApiKey();
 }
 
 function renderStats() {
@@ -670,9 +691,16 @@ function readText(file) {
 }
 
 async function callClaude(text) {
-  const resp = await fetch('/.netlify/functions/analyze',{
+  const apiKey = localStorage.getItem('anthropic_key');
+  if(!apiKey) { showApiKeyModal(); throw new Error('請先設定 API 金鑰'); }
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',max_tokens:1000,
       messages:[{role:'user',content:`你是採購清單解析助手。請從以下文件內容中提取所有採購品項，只回傳JSON，格式：{"items":[{"name":"品項名稱","spec":"規格","vendor":"廠商","qty":數量,"price":單價或0,"priority":"high/mid/low"}]}\n\n文件內容：\n${text.slice(0,4000)}`}]
@@ -684,9 +712,16 @@ async function callClaude(text) {
 }
 
 async function callClaudeImage(b64, mime) {
-  const resp = await fetch('/.netlify/functions/analyze',{
+  const apiKey = localStorage.getItem('anthropic_key');
+  if(!apiKey) { showApiKeyModal(); throw new Error('請先設定 API 金鑰'); }
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',max_tokens:1000,
       messages:[{role:'user',content:[
@@ -703,7 +738,10 @@ async function callClaudeImage(b64, mime) {
 function showParseResult(jsonText, file) {
   let parsed;
   try {
-    parsed = JSON.parse(jsonText.replace(/```json|```/g,'').trim());
+    let clean = jsonText.replace(/```json/g,'').replace(/```/g,'').trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if(jsonMatch) clean = jsonMatch[0];
+    parsed = JSON.parse(clean);
   } catch(e) {
     document.getElementById('parse-result').innerHTML=`<div class="ai-result"><div class="ai-header"><span class="ai-badge">AI</span>無法辨識採購資料</div><div style="font-size:13px;color:#888;background:#fafaf8;padding:12px;border-radius:8px">${jsonText.slice(0,300)}</div></div>`;
     return;
@@ -794,6 +832,30 @@ docZone.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0];
   if(f) handleDirectUpload({target:{files:[f],value:''}});
 });
+
+function showApiKeyModal() {
+  document.getElementById('apikey-modal').classList.add('open');
+}
+function closeApiKeyModal() {
+  document.getElementById('apikey-modal').classList.remove('open');
+}
+function saveApiKey() {
+  const key = document.getElementById('apikey-input').value.trim();
+  if(!key.startsWith('sk-ant-')) { alert('金鑰格式不正確，請確認是否以 sk-ant- 開頭'); return; }
+  localStorage.setItem('anthropic_key', key);
+  closeApiKeyModal();
+  showToast('✅ API 金鑰已儲存！');
+}
+document.getElementById('apikey-modal').addEventListener('click', e => {
+  if(e.target===document.getElementById('apikey-modal')) closeApiKeyModal();
+});
+
+// Add API key setting button to upload tab
+function checkApiKey() {
+  const key = localStorage.getItem('anthropic_key');
+  const btn = document.getElementById('apikey-btn');
+  if(btn) btn.textContent = key ? '🔑 已設定 AI 金鑰' : '🔑 設定 AI 金鑰（必要）';
+}
 
 // Firebase expiry check
 (function() {
